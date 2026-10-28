@@ -32,7 +32,8 @@ vector<User> FileStorage::loadUsers() {
     while (getline(f, line)) {
         if (line.empty()) continue;
         stringstream ss(line);
-        string u, p, a;
+        string id, u, p, a;
+        getline(ss, id, '|');
         getline(ss, u, '|');
         getline(ss, p, '|');
         getline(ss, a, '|');
@@ -44,16 +45,24 @@ vector<User> FileStorage::loadUsers() {
 
 void FileStorage::saveUser(const User& user) {
     ofstream f(usersPath, ios::app);
-    f << user.username << "|" << user.password << "|" << (user.isAdmin ? "1" : "0") << "\n";
+    f << user.id << "|" << user.username << "|" << user.password << "|" << (user.isAdmin ? "1" : "0") << "\n";
 }
+
 
 void FileStorage::updateUser(const vector<User>& users) {
     ofstream f(usersPath);
     for (const User& user : users) {
-        f << user.username << "|" << user.password << "|"
+        f << user.id << "|" << user.username << "|" << user.password << "|"
           << (user.isAdmin ? "1" : "0") << "\n";
     }
 }
+
+int FileStorage::nextUserId() {
+    int mx = 0;
+    for (auto& u : loadUsers()) mx = max(mx, user.id);
+    return mx +1;
+}
+
 
 vector<Credential> FileStorage::loadCredentials() {
     vector<Credential> creds;
@@ -63,6 +72,7 @@ vector<Credential> FileStorage::loadCredentials() {
         if (line.empty()) continue;
         stringstream ss(line);
         Credential c;
+        string id, oid
         getline(ss, c.owner, '|');
         getline(ss, c.appName, '|');
         getline(ss, c.username, '|');

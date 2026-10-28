@@ -1,19 +1,22 @@
 #ifndef USER_H
 #define USER_H
+
 #include<string>
+
 using namespace std;
 
 class User {
     public:
-    string username;
-    string password;
-    bool isAdmin;
+        std::string username;
+        std::string password;
 
-    User() : isAdmin(false) {}
-    User(string u, string p, bool admin = false):
-        username(u), password(p), isAdmin(admin) {}
+        User() {}
+        User(std::string name, std::string password);
+        virtual ~User() {}
+
+        virtual bool isAdmin();
 
 };
 
-
 #endif
+
