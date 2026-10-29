@@ -1,103 +1,118 @@
 #include "FileStorage.h"
 #include <fstream>
-#include <sstream>
-#include <ctime>
 #include <cstdlib>
 
+//Splits a line on '|' into parts[]. Returns how many parts were found
+static int split(std::string line, std::string parts[], int max)
+{
+    int count = 0;
 
-FileStorage::FileStorage()
-    : usersPath("data/users.txt"),
-      credPath("data/credentials.txt"),
-      auditPath("data/audit_log.txt") {
-        ensureFile(usersPath);
-        ensureFile(credPath);
-        ensureFile(auditPath);
-      }
-
-void FileStorage::ensureFile(const string& path) {
-    ofstream f(path, ios::app); // this creates a new file is no one exists before.
+    while (count < max - 1) {
+        int pos = line.find('|');
+        if (pos == -1) {
+            break;
+        }
+        parts[count] = line.substr(0, pos);
+        line = line.substr(pos + 1);
+        count++;
+    }
+    parts[count] = line;
+    return count + 1;
 }
 
-string FileStorage::now() {
-    time_t t = time(nullptr);
-    char buf[32];
-    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&t));
-    return string(buf);
+
+
+
+FileStorage::FileStorage(std::string uFile, std::string cFile) {
+    userFile = uFile;
+    credFile = cFile;
+
+    ofstream f1(userFile.c_str(), ios::app);
+    ofstream f2(credFile.c_str(), ios::app);
 }
 
-vector<User> FileStorage::loadUsers() {
-    vector<User> users;
-    ifstream f(usersPath);
+string FileStorage::userLine(User* u) {
+    string role = "user";
+    if (u->isAdmin()) {
+        role = "admin";
+    }
+    return u->username + "|" + u->password + "|" + role;
+}
+
+string FileStorage::credLine(Credential& c) {
+    return c.owner + "|" + c.appName + "|" + c.type + "|" + c.loginUser
+            + "|" + c.password + "|" + to_string(c.created) + "|" + to_string(c.updated);
+}
+
+vector<User*> FileStorage::loadUsers() {
+    vector<User*> users;
+    ifstream file(userFile.c_str());
     string line;
-    while (getline(f, line)) {
-        if (line.empty()) continue;
-        stringstream ss(line);
-        string id, u, p, a;
-        getline(ss, id, '|');
-        getline(ss, u, '|');
-        getline(ss, p, '|');
-        getline(ss, a, '|');
-        users.push_back(User(u, p, a == "1"));
+    string p[3];
 
+    while (getline(file, line)) {
+        if (line == "") {
+            continue;
+        }
+        split(line, p, 3);
+        if (p[2] == "admin") {
+            users.push_back(new Admin(p[0], p[1]));
+        }
+        else {
+            users.push_back(new User(p[0], p[1]));
+        }
     }
     return users;
 }
 
-void FileStorage::saveUser(const User& user) {
-    ofstream f(usersPath, ios::app);
-    f << user.id << "|" << user.username << "|" << user.password << "|" << (user.isAdmin ? "1" : "0") << "\n";
-}
+void FileStorage::saveUsers(vector<User*>& users) {
+    ofstream file(userFile.c_str());
 
-
-void FileStorage::updateUser(const vector<User>& users) {
-    ofstream f(usersPath);
-    for (const User& user : users) {
-        f << user.id << "|" << user.username << "|" << user.password << "|"
-          << (user.isAdmin ? "1" : "0") << "\n";
+    for (int i = 0; i < users.size(); i++) {
+        file << userLine(users[i]) << endl;
     }
 }
 
-int FileStorage::nextUserId() {
-    int mx = 0;
-    for (auto& u : loadUsers()) mx = max(mx, user.id);
-    return mx +1;
+void FileStorage::updateUser(User* u) {
+    ofstream file(userFile.c_str(), ios::app);
+    file << userLine(u) << endl;
 }
-
 
 vector<Credential> FileStorage::loadCredentials() {
-    vector<Credential> creds;
-    ifstream f(credPath);
-    string line;
-    while (getline(f, line)) {
-        if (line.empty()) continue;
-        stringstream ss(line);
+    vector<Credential> list;
+    ifstream file(credFile.c_str());
+    std::string line;
+    std::string p[7];
+
+    while (getline(file, line)) {
+        if (line == "") {
+            continue;
+        }
+        split(line, p, 7);
         Credential c;
-        string id, oid
-        getline(ss, c.owner, '|');
-        getline(ss, c.appName, '|');
-        getline(ss, c.username, '|');
-        getline(ss, c.password, '|');
-        getline(ss, c.dateCreated, '|');
-        getline(ss, c.dateUpdated, '|');
-        creds.push_back(c);
+        c.owner = p[0];
+        c.appName = p[1];
+        c.type = p[2];
+        c.loginUser = p[3];
+        c.created = atol(p[5].c_str());
+        c.updated = atol(p[6].c_str());
+        list.push_back(c);
     }
-    return creds;
+    return list;
 }
 
-void FileStorage::saveCredentials(const Credential& c) {
-    ofstream f(credPath, ios::app);
-    f << c.owner << "|" << c.appName << "|" << c.username << "|"
-      << c.password << "|" << c.dateCreated << "|" << c.dateUpdated << "\n";
+
+void FileStorage::saveCredentials(vector<Credential>& list) {
+    ofstream file(credFile.c_str());
+
+    for (int i = 0; i < list.size(); i++) {
+        file << credLine(list[i]) << endl;
+    }
 }
 
-void FileStorage::updateCredentials(const vector<Credential>& creds) {
-    ofstream f(credPath);
-    for (const auto& c : creds)
-        f << c.owner << "|" << c.appName << "|" << c.username << "|"
-          << c.password << "|" << c.dateCreated << "|" << c.dateUpdated << "\n";
+
+void FileStorage::updateCredential(Credential& c) {
+    ofstream file(credFile.c_str(), ios::app);
+    file << credLine(c) << endl;
 }
 
-void FileStorage::logAudit(const string& action, const string& detail) {
-    ofstream f(auditPath, ios::app);
-    f << now() << "|" << action << "|" << detail << "\n";
-}
